@@ -1,13 +1,15 @@
 public class Fila {
 
-    private Cliente[] clientes;
+    private Cliente primero;
+    private Cliente ultimo;
     private int numeroClientes;
 
     private final int MAXIMO_PERSONAS = 30;
     private final double PROBABILIDAD_ABURRIRSE = 0.30;
 
     public Fila() {
-        clientes = new Cliente[MAXIMO_PERSONAS];
+        primero = null;
+        ultimo = null;
         numeroClientes = 0;
     }
 
@@ -24,11 +26,7 @@ public class Fila {
     }
 
     public Cliente obtenerPrimero() {
-        if (hayGente()) {
-            return clientes[0];
-        }
-
-        return null;
+        return primero;
     }
 
     public boolean añadirCliente(Cliente cliente) {
@@ -37,7 +35,14 @@ public class Fila {
             return false;
         }
 
-        clientes[numeroClientes] = cliente;
+        if (!hayGente()) {
+            primero = cliente;
+            ultimo = cliente;
+        } else {
+            ultimo.establecerSiguiente(cliente);
+            ultimo = cliente;
+        }
+
         numeroClientes++;
 
         return true;
@@ -49,13 +54,16 @@ public class Fila {
             return null;
         }
 
-        Cliente cliente = clientes[0];
+        Cliente cliente = primero;
 
-        for (int i = 1; i < numeroClientes; i++) {
-            clientes[i - 1] = clientes[i];
-        }
+        primero = primero.obtenerSiguiente();
+        cliente.establecerSiguiente(null);
 
         numeroClientes--;
+
+        if (numeroClientes == 0) {
+            ultimo = null;
+        }
 
         return cliente;
     }
@@ -66,20 +74,44 @@ public class Fila {
             return false;
         }
 
-        int posicion = 0;
+        if (!hayGente()) {
+            primero = cliente;
+            ultimo = cliente;
+            numeroClientes++;
 
-        for (int i = 0; i < numeroClientes; i++) {
+            return true;
+        }
 
-            if (clientes[i].tieneAtencionPreferente()) {
-                posicion = i + 1;
+        Cliente actual = primero;
+        Cliente ultimoPreferente = null;
+
+        while (actual != null) {
+
+            if (actual.tieneAtencionPreferente()) {
+                ultimoPreferente = actual;
+            }
+
+            actual = actual.obtenerSiguiente();
+        }
+
+        if (ultimoPreferente == null) {
+
+            cliente.establecerSiguiente(primero);
+            primero = cliente;
+
+        } else {
+
+            cliente.establecerSiguiente(
+                    ultimoPreferente.obtenerSiguiente()
+            );
+
+            ultimoPreferente.establecerSiguiente(cliente);
+
+            if (ultimoPreferente == ultimo) {
+                ultimo = cliente;
             }
         }
 
-        for (int i = numeroClientes; i > posicion; i--) {
-            clientes[i] = clientes[i - 1];
-        }
-
-        clientes[posicion] = cliente;
         numeroClientes++;
 
         return true;
@@ -97,11 +129,22 @@ public class Fila {
 
         int posicion = (int) (Math.random() * numeroClientes);
 
-        for (int i = numeroClientes; i > posicion + 1; i--) {
-            clientes[i] = clientes[i - 1];
+        Cliente actual = primero;
+
+        for (int i = 0; i < posicion; i++) {
+            actual = actual.obtenerSiguiente();
         }
 
-        clientes[posicion + 1] = cliente;
+        cliente.establecerSiguiente(
+                actual.obtenerSiguiente()
+        );
+
+        actual.establecerSiguiente(cliente);
+
+        if (actual == ultimo) {
+            ultimo = cliente;
+        }
+
         numeroClientes++;
 
         return true;
@@ -113,16 +156,16 @@ public class Fila {
             return false;
         }
 
-        int personaQueEntrega = (int) (Math.random() * numeroClientes);
-        int personaQueRecibe = (int) (Math.random() * numeroClientes);
+        Cliente actual = primero;
 
-        while (personaQueRecibe == personaQueEntrega) {
-            personaQueRecibe = (int) (Math.random() * numeroClientes);
-        }
+        while (actual != null) {
 
-        if (clientes[personaQueEntrega].tieneCompras()) {
-            clientes[personaQueEntrega].entregarCompras();
-            return true;
+            if (actual.tieneCompras()) {
+                actual.entregarCompras();
+                return true;
+            }
+
+            actual = actual.obtenerSiguiente();
         }
 
         return false;
@@ -130,37 +173,66 @@ public class Fila {
 
     public void comprobarAburrimiento(int minutoActual) {
 
-        for (int i = 0; i < numeroClientes; i++) {
+        Cliente actual = primero;
+        Cliente anterior = null;
 
-            if (clientes[i].minutosEnFila(minutoActual) > 8) {
+        while (actual != null) {
 
-                if (Math.random() < PROBABILIDAD_ABURRIRSE) {
-                    eliminarCliente(i);
-                    i--;
+            if (actual.minutosEnFila(minutoActual) > 8
+                    && Math.random() < PROBABILIDAD_ABURRIRSE) {
+
+                if (anterior == null) {
+                    primero = actual.obtenerSiguiente();
+                } else {
+                    anterior.establecerSiguiente(
+                            actual.obtenerSiguiente()
+                    );
                 }
+
+                if (actual == ultimo) {
+                    ultimo = anterior;
+                }
+
+                numeroClientes--;
+
+                actual = actual.obtenerSiguiente();
+
+            } else {
+
+                anterior = actual;
+                actual = actual.obtenerSiguiente();
             }
         }
-    }
 
-    private void eliminarCliente(int posicion) {
-
-        for (int i = posicion + 1; i < numeroClientes; i++) {
-            clientes[i - 1] = clientes[i];
+        if (numeroClientes == 0) {
+            primero = null;
+            ultimo = null;
         }
-
-        numeroClientes--;
     }
 
     public void mostrar() {
 
-        System.out.println("FILA: " + numeroClientes + " personas");
+        System.out.println(
+                "FILA: " + numeroClientes + " personas"
+        );
 
-        for (int i = 0; i < numeroClientes; i++) {
-            if (clientes[i].tieneAtencionPreferente()) {
-                System.out.println("  Persona " + (i + 1) + " (preferente)");
+        Cliente actual = primero;
+        int posicion = 1;
+
+        while (actual != null) {
+
+            if (actual.tieneAtencionPreferente()) {
+                System.out.println(
+                        "  Persona " + posicion + " (preferente)"
+                );
             } else {
-                System.out.println("  Persona " + (i + 1));
+                System.out.println(
+                        "  Persona " + posicion
+                );
             }
+
+            actual = actual.obtenerSiguiente();
+            posicion++;
         }
     }
 }
